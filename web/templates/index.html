@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Page Analyzer</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .hero h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.025em;
+        }
+
+        .hero p {
+            margin-top: 0.5rem;
+            color: #64748b;
+            font-size: 1rem;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+            padding: 2rem;
+            width: 100%;
+            max-width: 560px;
+        }
+
+        .card label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .input-row input[type="url"] {
+            flex: 1;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            color: #0f172a;
+            background: #f9fafb;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            outline: none;
+        }
+
+        .input-row input[type="url"]:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+            background: #ffffff;
+        }
+
+        .btn-analyze {
+            padding: 0.625rem 1.25rem;
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+
+        .btn-analyze:hover { background: #1d4ed8; }
+        .btn-analyze:active { opacity: 0.9; }
+
+        .error-box {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            color: #dc2626;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .error-box::before { content: "⚠"; flex-shrink: 0; }
+
+        .hint {
+            margin-top: 0.75rem;
+            font-size: 0.8125rem;
+            color: #94a3b8;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>Web Page Analyzer</h1>
+        <p>Analyze any web page for structure, links, and content</p>
+    </div>
+
+    <div class="card">
+        <form action="/analyze" method="POST">
+            <label for="url">Enter a URL to analyze</label>
+            <div class="input-row">
+                <input
+                    type="url"
+                    id="url"
+                    name="url"
+                    placeholder="https://example.com"
+                    value="{{ .URL }}"
+                    autocomplete="url"
+                    autofocus
+                />
+                <button type="submit" class="btn-analyze">Analyze →</button>
+            </div>
+            {{ if .Error }}
+            <div class="error-box">{{ .Error }}</div>
+            {{ end }}
+        </form>
+        <p class="hint">Supports http:// and https:// URLs</p>
+    </div>
+</body>
+</html>
