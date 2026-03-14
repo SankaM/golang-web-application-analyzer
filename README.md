@@ -311,10 +311,20 @@ Open `coverage.html` for a line-by-line report.
 
 ## Screenshots / Demo
 
-*(Optional: Add screenshots or a short video demonstrating the analyzer in use. For example: index form, sample result page, and metrics endpoint.)*
+### Index — URL input form
+
+![Index form](assets/index-form.png)
+
+Enter a URL and click **Analyze** to run the analysis.
+
+### Results — analysis output
+
+![Analysis results](assets/analysis-results.png)
+
+Results include HTML version, page title, heading counts, link statistics (internal, external, inaccessible), and login form detection.
 
 ---
 
 ## Note on Implementation
 
-This project was developed manually according to specified requirements. Code was written to satisfy functional and non-functional needs, with no AI-generated code used in the implementation.
+This project was developed manually according to specified requirements. Code was written to satisfy functional and non-functional needs.
