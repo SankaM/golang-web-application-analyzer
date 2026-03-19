@@ -74,6 +74,7 @@ func (h *Handler) Analyze(w http.ResponseWriter, r *http.Request) {
 		h.renderIndex(w, IndexData{Error: fmt.Sprintf("Invalid URL: %s", err.Error()), URL: rawURL})
 		return
 	}
+	setBrowserHeaders(req)
 	resp, err := h.client.Do(req)
 	if err != nil {
 		h.logger.Error("fetch failed", "url", rawURL, "error", err)
@@ -127,6 +128,15 @@ func (h *Handler) renderIndex(w http.ResponseWriter, data IndexData) {
 		h.logger.Error("template render failed", "template", "index.html", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
+}
+
+// setBrowserHeaders sets common browser-like headers on r so that servers
+// using basic bot-detection (User-Agent checks, Accept sniffing) don't
+// reject the request before we can read the page.
+func setBrowserHeaders(r *http.Request) {
+	r.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	r.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	r.Header.Set("Accept-Language", "en-US,en;q=0.9")
 }
 
 // validateURL applies two layers of validation:

@@ -137,6 +137,7 @@ func isAccessible(ctx context.Context, rawURL string, client *http.Client) bool 
 	if err != nil {
 		return false
 	}
+	setBrowserHeaders(req)
 	resp, err := client.Do(req)
 	if err != nil {
 		return false
@@ -149,6 +150,7 @@ func isAccessible(ctx context.Context, rawURL string, client *http.Client) bool 
 		if err != nil {
 			return false
 		}
+		setBrowserHeaders(req)
 		resp, err = client.Do(req)
 		if err != nil {
 			return false
@@ -157,4 +159,12 @@ func isAccessible(ctx context.Context, rawURL string, client *http.Client) bool 
 	}
 
 	return resp.StatusCode < http.StatusBadRequest
+}
+
+// setBrowserHeaders sets common browser-like headers so servers using basic
+// bot-detection (User-Agent checks, Accept sniffing) don't reject the request.
+func setBrowserHeaders(r *http.Request) {
+	r.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	r.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	r.Header.Set("Accept-Language", "en-US,en;q=0.9")
 }
