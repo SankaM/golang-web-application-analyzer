@@ -294,7 +294,6 @@
                 </div>
             </div>
 
-            {{ if .Result.InternalURLs }}
             <div class="link-group internal">
                 <details>
                     <summary>
@@ -302,15 +301,17 @@
                         Internal links ({{ len .Result.InternalURLs }} unique)
                     </summary>
                     <ul>
+                        {{ if .Result.InternalURLs }}
                         {{ range .Result.InternalURLs }}
                         <li><a href="{{ . }}" target="_blank" rel="noopener">{{ . }}</a></li>
+                        {{ end }}
+                        {{ else }}
+                        <li>No internal links found.</li>
                         {{ end }}
                     </ul>
                 </details>
             </div>
-            {{ end }}
 
-            {{ if .Result.ExternalURLs }}
             <div class="link-group external">
                 <details>
                     <summary>
@@ -318,15 +319,17 @@
                         External links ({{ len .Result.ExternalURLs }} unique)
                     </summary>
                     <ul>
+                        {{ if .Result.ExternalURLs }}
                         {{ range .Result.ExternalURLs }}
                         <li><a href="{{ . }}" target="_blank" rel="noopener">{{ . }}</a></li>
+                        {{ end }}
+                        {{ else }}
+                        <li>No external links found.</li>
                         {{ end }}
                     </ul>
                 </details>
             </div>
-            {{ end }}
 
-            {{ if .Result.InaccessibleURLs }}
             <div class="link-group inaccessible">
                 <details open>
                     <summary>
@@ -334,13 +337,16 @@
                         Inaccessible links ({{ len .Result.InaccessibleURLs }})
                     </summary>
                     <ul>
+                        {{ if .Result.InaccessibleURLs }}
                         {{ range .Result.InaccessibleURLs }}
                         <li><a href="{{ . }}" target="_blank" rel="noopener">{{ . }}</a></li>
+                        {{ end }}
+                        {{ else }}
+                        <li>No inaccessible links found.</li>
                         {{ end }}
                     </ul>
                 </details>
             </div>
-            {{ end }}
         </div>
 
         <!-- Login Form -->
