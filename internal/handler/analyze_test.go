@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -11,6 +12,18 @@ import (
 	"strings"
 	"testing"
 )
+
+type mockBrowserFetcher struct {
+	html string
+	err  error
+}
+
+func (m mockBrowserFetcher) FetchHTML(_ context.Context, _ string) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	return m.html, nil
+}
 
 // buildHandler creates a Handler with real templates and the given HTTP client.
 // The templates are parsed from inline strings so the test has no filesystem
@@ -122,6 +135,62 @@ func TestAnalyzeHandler_TargetReturns404(t *testing.T) {
 	}
 }
 
+func TestAnalyzeHandler_BrowserFallbackSucceeds(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "cloudflare")
+		w.Header().Set("cf-mitigated", "challenge")
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer target.Close()
+
+	h := buildHandler(t, target.Client())
+	h.browserFetcher = mockBrowserFetcher{
+		html: `<!DOCTYPE html><html><head><title>From Browser</title></head><body><h1>Ok</h1></body></html>`,
+	}
+
+	form := url.Values{"url": {target.URL}}
+	req := httptest.NewRequest(http.MethodPost, "/analyze", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	h.Analyze(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "From Browser") {
+		t.Errorf("expected browser fallback title in body; got %q", rr.Body.String())
+	}
+}
+
+func TestAnalyzeHandler_BrowserFallbackFailureKeepsHTTPError(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "cloudflare")
+		w.Header().Set("cf-mitigated", "challenge")
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer target.Close()
+
+	h := buildHandler(t, target.Client())
+	h.browserFetcher = mockBrowserFetcher{
+		err: fmt.Errorf("browser not available"),
+	}
+
+	form := url.Values{"url": {target.URL}}
+	req := httptest.NewRequest(http.MethodPost, "/analyze", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	h.Analyze(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "403") {
+		t.Errorf("expected 403 in body; got %q", rr.Body.String())
+	}
+}
+
 // TestIndex verifies the index handler renders without error.
 func TestIndex(t *testing.T) {
 	h := buildHandler(t, &http.Client{})
@@ -154,6 +223,60 @@ func TestValidateURL(t *testing.T) {
 			err := validateURL(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateURL(%q) error = %v, wantErr = %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestShouldAttemptBrowserFallback(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		headers    map[string]string
+		want       bool
+	}{
+		{
+			name:       "cloudflare_403",
+			statusCode: http.StatusForbidden,
+			headers: map[string]string{
+				"cf-mitigated": "challenge",
+				"server":       "cloudflare",
+			},
+			want: true,
+		},
+		{
+			name:       "too_many_requests",
+			statusCode: http.StatusTooManyRequests,
+			headers:    map[string]string{},
+			want:       true,
+		},
+		{
+			name:       "forbidden_without_hints",
+			statusCode: http.StatusForbidden,
+			headers:    map[string]string{},
+			want:       false,
+		},
+		{
+			name:       "normal_404",
+			statusCode: http.StatusNotFound,
+			headers:    map[string]string{},
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := &http.Response{
+				StatusCode: tt.statusCode,
+				Header:     make(http.Header),
+			}
+			for key, value := range tt.headers {
+				resp.Header.Set(key, value)
+			}
+
+			got := shouldAttemptBrowserFallback(resp)
+			if got != tt.want {
+				t.Errorf("shouldAttemptBrowserFallback() = %v, want %v", got, tt.want)
 			}
 		})
 	}

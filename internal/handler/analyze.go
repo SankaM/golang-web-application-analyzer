@@ -1,16 +1,20 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/sanka/golang-web-application-analyzer/internal/analyzer"
+	"github.com/sanka/golang-web-application-analyzer/internal/browserfetch"
 	"github.com/sanka/golang-web-application-analyzer/internal/metrics"
 )
 
@@ -32,18 +36,24 @@ type ResultData struct {
 
 // Handler holds the shared dependencies for all HTTP handlers.
 type Handler struct {
-	templates *template.Template
-	client    *http.Client
-	logger    *slog.Logger
+	templates      *template.Template
+	client         *http.Client
+	logger         *slog.Logger
+	browserFetcher browserFetcher
+}
+
+type browserFetcher interface {
+	FetchHTML(ctx context.Context, targetURL string) (string, error)
 }
 
 // New constructs a Handler. Dependencies are injected so they can be mocked
 // in tests without touching global state.
 func New(templates *template.Template, client *http.Client, logger *slog.Logger) *Handler {
 	return &Handler{
-		templates: templates,
-		client:    client,
-		logger:    logger,
+		templates:      templates,
+		client:         client,
+		logger:         logger,
+		browserFetcher: browserfetch.New(15 * time.Second),
 	}
 }
 
@@ -86,7 +96,20 @@ func (h *Handler) Analyze(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= http.StatusBadRequest {
+	bodyReader := io.Reader(resp.Body)
+	usedBrowserFallback := false
+	if shouldAttemptBrowserFallback(resp) {
+		htmlContent, fallbackErr := h.browserFetcher.FetchHTML(r.Context(), rawURL)
+		if fallbackErr == nil {
+			h.logger.Info("browser fallback succeeded", "url", rawURL, "status", resp.StatusCode)
+			bodyReader = strings.NewReader(htmlContent)
+			usedBrowserFallback = true
+		} else {
+			h.logger.Warn("browser fallback failed", "url", rawURL, "status", resp.StatusCode, "error", fallbackErr)
+		}
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest && !usedBrowserFallback {
 		h.logger.Warn("target returned error status", "url", rawURL, "status", resp.StatusCode)
 		h.renderIndex(w, IndexData{
 			Error: fmt.Sprintf("HTTP %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode)),
@@ -95,7 +118,7 @@ func (h *Handler) Analyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := analyzer.Analyze(r.Context(), rawURL, resp.Body, h.client)
+	result, err := analyzer.Analyze(r.Context(), rawURL, bodyReader, h.client)
 	if err != nil {
 		h.logger.Error("analysis failed", "url", rawURL, "error", err)
 		h.renderIndex(w, IndexData{
@@ -137,6 +160,31 @@ func setBrowserHeaders(r *http.Request) {
 	r.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 	r.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	r.Header.Set("Accept-Language", "en-US,en;q=0.9")
+}
+
+func shouldAttemptBrowserFallback(resp *http.Response) bool {
+	if resp == nil {
+		return false
+	}
+	if resp.StatusCode != http.StatusForbidden &&
+		resp.StatusCode != http.StatusTooManyRequests &&
+		resp.StatusCode != http.StatusServiceUnavailable {
+		return false
+	}
+
+	challengeHints := []string{
+		resp.Header.Get("cf-mitigated"),
+		resp.Header.Get("server"),
+		resp.Header.Get("x-sucuri-id"),
+	}
+	for _, hint := range challengeHints {
+		lower := strings.ToLower(hint)
+		if strings.Contains(lower, "challenge") || strings.Contains(lower, "cloudflare") || strings.Contains(lower, "sucuri") {
+			return true
+		}
+	}
+
+	return resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable
 }
 
 // validateURL applies two layers of validation:
