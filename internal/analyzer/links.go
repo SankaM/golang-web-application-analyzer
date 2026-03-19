@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -21,15 +22,16 @@ const maxConcurrent = 10
 
 // AnalyzeLinks collects all <a href> links from the document, classifies them
 // as internal or external relative to base, then checks each for accessibility
-// using up to maxConcurrent goroutines in parallel.
-func AnalyzeLinks(doc *html.Node, base *url.URL, client *http.Client) LinkResult {
+// using up to maxConcurrent goroutines in parallel. ctx is forwarded into every
+// outbound HEAD/GET so cancellations and deadlines are honoured.
+func AnalyzeLinks(ctx context.Context, doc *html.Node, base *url.URL, client *http.Client) LinkResult {
 	links := collectLinks(doc, base)
 
 	var result LinkResult
 	result.InternalCount = links.internal
 	result.ExternalCount = links.external
 
-	inaccessible, urls := checkAccessibility(links.all, client)
+	inaccessible, urls := checkAccessibility(ctx, links.all, client)
 	result.InaccessibleCount = inaccessible
 	result.InaccessibleURLs = urls
 	return result
@@ -51,32 +53,20 @@ func collectLinks(doc *html.Node, base *url.URL) collectedLinks {
 	walk = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "a" {
 			href := attrVal(n, "href")
-			if shouldSkip(href) {
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					walk(c)
+			if !shouldSkip(href) {
+				if resolved, err := base.Parse(href); err == nil {
+					full := resolved.String()
+					if resolved.Host == base.Host {
+						cl.internal++
+					} else {
+						cl.external++
+					}
+					// Deduplicate before accessibility checks to avoid redundant requests.
+					if !seen[full] {
+						seen[full] = true
+						cl.all = append(cl.all, full)
+					}
 				}
-				return
-			}
-
-			resolved, err := base.Parse(href)
-			if err != nil {
-				for c := n.FirstChild; c != nil; c = c.NextSibling {
-					walk(c)
-				}
-				return
-			}
-
-			full := resolved.String()
-			if resolved.Host == base.Host {
-				cl.internal++
-			} else {
-				cl.external++
-			}
-
-			// Deduplicate before accessibility checks to avoid redundant requests.
-			if !seen[full] {
-				seen[full] = true
-				cl.all = append(cl.all, full)
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -103,7 +93,7 @@ func shouldSkip(href string) bool {
 // checkAccessibility checks each URL concurrently using a semaphore channel
 // to cap parallelism at maxConcurrent. A WaitGroup ensures we wait for all
 // goroutines before returning. A Mutex protects the shared result slice.
-func checkAccessibility(links []string, client *http.Client) (int, []string) {
+func checkAccessibility(ctx context.Context, links []string, client *http.Client) (int, []string) {
 	sem := make(chan struct{}, maxConcurrent)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -117,7 +107,7 @@ func checkAccessibility(links []string, client *http.Client) (int, []string) {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			if !isAccessible(l, client) {
+			if !isAccessible(ctx, l, client) {
 				mu.Lock()
 				inaccessibleURLs = append(inaccessibleURLs, l)
 				mu.Unlock()
@@ -131,8 +121,12 @@ func checkAccessibility(links []string, client *http.Client) (int, []string) {
 
 // isAccessible sends a HEAD request and falls back to GET on 405.
 // Any status >= 400 or network error is treated as inaccessible.
-func isAccessible(rawURL string, client *http.Client) bool {
-	resp, err := client.Head(rawURL)
+func isAccessible(ctx context.Context, rawURL string, client *http.Client) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return false
 	}
@@ -140,7 +134,11 @@ func isAccessible(rawURL string, client *http.Client) bool {
 
 	// Some servers do not support HEAD; retry with GET.
 	if resp.StatusCode == http.StatusMethodNotAllowed {
-		resp, err = client.Get(rawURL)
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+		if err != nil {
+			return false
+		}
+		resp, err = client.Do(req)
 		if err != nil {
 			return false
 		}

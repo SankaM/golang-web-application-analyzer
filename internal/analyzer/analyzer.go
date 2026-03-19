@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,9 +25,9 @@ type AnalysisResult struct {
 }
 
 // Analyze reads the HTML body, runs all analysis functions, and returns a
-// populated AnalysisResult. The client is passed through so link accessibility
-// checks reuse the same configured HTTP client (timeouts, transport, etc.).
-func Analyze(targetURL string, body io.Reader, client *http.Client) (*AnalysisResult, error) {
+// populated AnalysisResult. ctx is propagated into all outbound HTTP calls so
+// that request cancellation and deadlines are respected end-to-end.
+func Analyze(ctx context.Context, targetURL string, body io.Reader, client *http.Client) (*AnalysisResult, error) {
 	// Buffer the body so we can read it twice:
 	// once for DOCTYPE detection (needs the raw token stream),
 	// once for full tree parsing.
@@ -47,7 +48,7 @@ func Analyze(targetURL string, body io.Reader, client *http.Client) (*AnalysisRe
 		return nil, fmt.Errorf("parsing target URL: %w", err)
 	}
 
-	linkResult := AnalyzeLinks(doc, baseURL, client)
+	linkResult := AnalyzeLinks(ctx, doc, baseURL, client)
 
 	return &AnalysisResult{
 		URL:               targetURL,

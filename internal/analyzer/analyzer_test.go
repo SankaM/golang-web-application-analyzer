@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -232,7 +233,7 @@ func TestAnalyzeLinks_Classification(t *testing.T) {
 	doc := mustParse(t, htmlInput)
 	baseURL := mustParseURL(t, srv.URL)
 
-	result := AnalyzeLinks(doc, baseURL, srv.Client())
+	result := AnalyzeLinks(context.Background(), doc, baseURL, srv.Client())
 
 	if result.InternalCount != 2 {
 		t.Errorf("InternalCount = %d, want 2", result.InternalCount)
@@ -261,7 +262,7 @@ func TestAnalyzeLinks_InaccessibleDetection(t *testing.T) {
 	doc := mustParse(t, htmlInput)
 	baseURL := mustParseURL(t, srv.URL)
 
-	result := AnalyzeLinks(doc, baseURL, srv.Client())
+	result := AnalyzeLinks(context.Background(), doc, baseURL, srv.Client())
 
 	if result.InaccessibleCount != 1 {
 		t.Errorf("InaccessibleCount = %d, want 1", result.InaccessibleCount)
@@ -284,7 +285,7 @@ func TestAnalyze(t *testing.T) {
 	</body>
 	</html>`
 
-	result, err := Analyze("https://example.com", bytes.NewReader([]byte(body)), &http.Client{})
+	result, err := Analyze(context.Background(), "https://example.com", bytes.NewReader([]byte(body)), &http.Client{})
 	if err != nil {
 		t.Fatalf("Analyze() error = %v", err)
 	}

@@ -69,7 +69,12 @@ func (h *Handler) Analyze(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 
-	resp, err := h.client.Get(rawURL)
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, rawURL, nil)
+	if err != nil {
+		h.renderIndex(w, IndexData{Error: fmt.Sprintf("Invalid URL: %s", err.Error()), URL: rawURL})
+		return
+	}
+	resp, err := h.client.Do(req)
 	if err != nil {
 		h.logger.Error("fetch failed", "url", rawURL, "error", err)
 		h.renderIndex(w, IndexData{
@@ -89,7 +94,7 @@ func (h *Handler) Analyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := analyzer.Analyze(rawURL, resp.Body, h.client)
+	result, err := analyzer.Analyze(r.Context(), rawURL, resp.Body, h.client)
 	if err != nil {
 		h.logger.Error("analysis failed", "url", rawURL, "error", err)
 		h.renderIndex(w, IndexData{
