@@ -116,6 +116,32 @@ flowchart LR
     User --> UC6
 ```
 
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User Browser
+    participant S as HTTP Server
+    participant M as Middleware
+    participant H as Handler
+    participant A as Analyzer
+    participant T as Target Website
+    participant V as Templates
+
+    U->>S: POST /analyze (url)
+    S->>M: Route request
+    M->>H: Analyze()
+    H->>H: Validate URL
+    H->>T: GET target page
+    T-->>H: HTML response
+    H->>A: Analyze(url, body, client)
+    A-->>H: AnalysisResult
+    H->>V: Render result.html
+    V-->>U: HTML result page
+    M-->>S: Record logs + metrics
+```
+
 ---
 
 ## Prerequisites
