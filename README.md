@@ -7,6 +7,7 @@ A server-rendered Go web application that analyzes any web page and returns a st
 ## Table of Contents
 
 - [Project Overview](#project-overview)
+- [Diagrams](#diagrams)
 - [Prerequisites](#prerequisites)
 - [Technologies Used](#technologies-used)
 - [External Dependencies](#external-dependencies)
@@ -44,6 +45,75 @@ internal/handler/           ← HTTP handlers (form input → analysis → HTML 
 internal/server/            ← Server bootstrap, routing, middleware
 internal/metrics/           ← Prometheus metric definitions
 web/templates/              ← HTML templates (index + results)
+```
+
+---
+
+## Diagrams
+
+### Architecture diagram
+
+```mermaid
+flowchart LR
+    User[User Browser] -->|GET /, POST /analyze| Server[HTTP Server]
+    Server --> MW[Logging + Metrics Middleware]
+    MW --> Handler[Handler Layer]
+    Handler -->|Fetch URL| Target[Target Website]
+    Handler --> Analyzer[Analyzer Layer]
+    Analyzer -->|AnalysisResult| Handler
+    Handler --> Templates[Go HTML Templates]
+    Templates -->|Rendered HTML| User
+
+    Server --> Metrics[/metrics endpoint/]
+    Server --> Pprof[/debug/pprof/ endpoint/]
+```
+
+### Component diagram
+
+```mermaid
+flowchart TB
+    Main[cmd/server/main.go]
+    Server[internal/server]
+    Handler[internal/handler]
+    Analyzer[internal/analyzer]
+    Metrics[internal/metrics]
+    Templates[web/templates]
+    NetHTTP[net/http client]
+
+    Main --> Server
+    Main --> Handler
+    Main --> Templates
+    Main --> Metrics
+
+    Server --> Handler
+    Server --> Metrics
+    Handler --> Analyzer
+    Handler --> Templates
+    Handler --> NetHTTP
+    Analyzer --> NetHTTP
+```
+
+### Use case diagram
+
+```mermaid
+flowchart LR
+    User((User))
+
+    subgraph WebApp[Web Application Analyzer]
+        UC1[Submit URL]
+        UC2[Validate URL]
+        UC3[Analyze Page]
+        UC4[View Results]
+        UC5[View Metrics]
+        UC6[Use pprof]
+    end
+
+    User --> UC1
+    UC1 --> UC2
+    UC2 --> UC3
+    UC3 --> UC4
+    User --> UC5
+    User --> UC6
 ```
 
 ---
