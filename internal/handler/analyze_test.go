@@ -257,6 +257,20 @@ func TestShouldAttemptBrowserFallback(t *testing.T) {
 			want:       false,
 		},
 		{
+			name:       "facebook_bad_request",
+			statusCode: http.StatusBadRequest,
+			headers: map[string]string{
+				"x-fb-debug": "token",
+			},
+			want: true,
+		},
+		{
+			name:       "generic_bad_request",
+			statusCode: http.StatusBadRequest,
+			headers:    map[string]string{},
+			want:       false,
+		},
+		{
 			name:       "normal_404",
 			statusCode: http.StatusNotFound,
 			headers:    map[string]string{},

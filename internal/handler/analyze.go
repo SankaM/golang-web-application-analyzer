@@ -166,7 +166,17 @@ func shouldAttemptBrowserFallback(resp *http.Response) bool {
 	if resp == nil {
 		return false
 	}
+	if resp.StatusCode == http.StatusBadRequest {
+		// Some heavily protected targets (for example Meta properties) return
+		// 400 to non-browser clients. Treat that as a candidate for browser
+		// fallback when anti-bot headers are present.
+		server := strings.ToLower(resp.Header.Get("server"))
+		if resp.Header.Get("x-fb-debug") != "" || strings.Contains(server, "proxygen") {
+			return true
+		}
+	}
 	if resp.StatusCode != http.StatusForbidden &&
+		resp.StatusCode != http.StatusBadRequest &&
 		resp.StatusCode != http.StatusTooManyRequests &&
 		resp.StatusCode != http.StatusServiceUnavailable {
 		return false
