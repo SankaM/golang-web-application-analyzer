@@ -20,6 +20,8 @@ type AnalysisResult struct {
 	InternalLinks     int
 	ExternalLinks     int
 	InaccessibleCount int
+	InternalURLs      []string
+	ExternalURLs      []string
 	InaccessibleURLs  []string
 	HasLoginForm      bool
 }
@@ -58,6 +60,8 @@ func Analyze(ctx context.Context, targetURL string, body io.Reader, client *http
 		InternalLinks:     linkResult.InternalCount,
 		ExternalLinks:     linkResult.ExternalCount,
 		InaccessibleCount: linkResult.InaccessibleCount,
+		InternalURLs:      linkResult.InternalURLs,
+		ExternalURLs:      linkResult.ExternalURLs,
 		InaccessibleURLs:  linkResult.InaccessibleURLs,
 		HasLoginForm:      HasLoginForm(doc, targetURL),
 	}, nil

@@ -15,6 +15,8 @@ type LinkResult struct {
 	InternalCount     int
 	ExternalCount     int
 	InaccessibleCount int
+	InternalURLs      []string
+	ExternalURLs      []string
 	InaccessibleURLs  []string
 }
 
@@ -30,6 +32,8 @@ func AnalyzeLinks(ctx context.Context, doc *html.Node, base *url.URL, client *ht
 	var result LinkResult
 	result.InternalCount = links.internal
 	result.ExternalCount = links.external
+	result.InternalURLs = links.internalURLs
+	result.ExternalURLs = links.externalURLs
 
 	inaccessible, urls := checkAccessibility(ctx, links.all, client)
 	result.InaccessibleCount = inaccessible
@@ -38,9 +42,11 @@ func AnalyzeLinks(ctx context.Context, doc *html.Node, base *url.URL, client *ht
 }
 
 type collectedLinks struct {
-	internal int
-	external int
-	all      []string
+	internal     int
+	external     int
+	internalURLs []string
+	externalURLs []string
+	all          []string
 }
 
 // collectLinks walks the node tree, resolves every href against base, and
@@ -65,6 +71,11 @@ func collectLinks(doc *html.Node, base *url.URL) collectedLinks {
 					if !seen[full] {
 						seen[full] = true
 						cl.all = append(cl.all, full)
+						if resolved.Host == base.Host {
+							cl.internalURLs = append(cl.internalURLs, full)
+						} else {
+							cl.externalURLs = append(cl.externalURLs, full)
+						}
 					}
 				}
 			}
