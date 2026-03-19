@@ -147,40 +147,80 @@
 
         .stat-value.danger { color: #dc2626; }
 
-        .inaccessible-list {
+        /* Collapsible link lists */
+        .link-group {
             margin-top: 0.75rem;
             border-top: 1px solid #f1f5f9;
             padding-top: 0.75rem;
         }
 
-        .inaccessible-list .list-label {
-            font-size: 0.8125rem;
-            font-weight: 600;
-            color: #dc2626;
-            margin-bottom: 0.5rem;
+        .link-group + .link-group {
+            margin-top: 0.5rem;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 0.5rem;
         }
 
-        .inaccessible-list ul {
+        .link-group details summary {
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            user-select: none;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            padding: 0.25rem 0;
+        }
+
+        .link-group details summary::-webkit-details-marker { display: none; }
+
+        .link-group details summary .chevron {
+            display: inline-block;
+            transition: transform 0.18s ease;
+            font-style: normal;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .link-group details[open] summary .chevron {
+            transform: rotate(90deg);
+        }
+
+        .link-group.internal summary { color: #2563eb; }
+        .link-group.external summary { color: #0f172a; }
+        .link-group.inaccessible summary { color: #dc2626; }
+
+        .link-group ul {
             list-style: none;
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+            margin-top: 0.5rem;
+            padding-left: 1.25rem;
         }
 
-        .inaccessible-list li {
+        .link-group li {
             font-size: 0.8125rem;
             color: #64748b;
             word-break: break-all;
-            padding-left: 1rem;
             position: relative;
         }
 
-        .inaccessible-list li::before {
+        .link-group li::before {
             content: "•";
             position: absolute;
-            left: 0;
-            color: #dc2626;
+            left: -1rem;
         }
+
+        .link-group.internal li::before { color: #2563eb; }
+        .link-group.external li::before { color: #64748b; }
+        .link-group.inaccessible li::before { color: #dc2626; }
+
+        .link-group li a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .link-group li a:hover { text-decoration: underline; }
 
         /* Login form badge */
         .badge {
@@ -253,14 +293,52 @@
                     <span class="stat-value {{ if gt .Result.InaccessibleCount 0 }}danger{{ end }}">{{ .Result.InaccessibleCount }}</span>
                 </div>
             </div>
+
+            {{ if .Result.InternalURLs }}
+            <div class="link-group internal">
+                <details>
+                    <summary>
+                        <span class="chevron">▶</span>
+                        Internal links ({{ len .Result.InternalURLs }} unique)
+                    </summary>
+                    <ul>
+                        {{ range .Result.InternalURLs }}
+                        <li><a href="{{ . }}" target="_blank" rel="noopener">{{ . }}</a></li>
+                        {{ end }}
+                    </ul>
+                </details>
+            </div>
+            {{ end }}
+
+            {{ if .Result.ExternalURLs }}
+            <div class="link-group external">
+                <details>
+                    <summary>
+                        <span class="chevron">▶</span>
+                        External links ({{ len .Result.ExternalURLs }} unique)
+                    </summary>
+                    <ul>
+                        {{ range .Result.ExternalURLs }}
+                        <li><a href="{{ . }}" target="_blank" rel="noopener">{{ . }}</a></li>
+                        {{ end }}
+                    </ul>
+                </details>
+            </div>
+            {{ end }}
+
             {{ if .Result.InaccessibleURLs }}
-            <div class="inaccessible-list">
-                <div class="list-label">Inaccessible URLs</div>
-                <ul>
-                    {{ range .Result.InaccessibleURLs }}
-                    <li>{{ . }}</li>
-                    {{ end }}
-                </ul>
+            <div class="link-group inaccessible">
+                <details open>
+                    <summary>
+                        <span class="chevron">▶</span>
+                        Inaccessible links ({{ len .Result.InaccessibleURLs }})
+                    </summary>
+                    <ul>
+                        {{ range .Result.InaccessibleURLs }}
+                        <li><a href="{{ . }}" target="_blank" rel="noopener">{{ . }}</a></li>
+                        {{ end }}
+                    </ul>
+                </details>
             </div>
             {{ end }}
         </div>
