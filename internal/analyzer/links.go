@@ -142,7 +142,7 @@ func isAccessible(ctx context.Context, rawURL string, client *http.Client) bool 
 	if err != nil {
 		return false
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Some servers do not support HEAD; retry with GET.
 	if resp.StatusCode == http.StatusMethodNotAllowed {
@@ -155,7 +155,7 @@ func isAccessible(ctx context.Context, rawURL string, client *http.Client) bool 
 		if err != nil {
 			return false
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 
 	return resp.StatusCode < http.StatusBadRequest

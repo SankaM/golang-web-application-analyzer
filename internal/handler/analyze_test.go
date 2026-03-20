@@ -48,7 +48,7 @@ func buildHandler(t *testing.T, client *http.Client) *Handler {
 func TestAnalyzeHandler_ValidURL(t *testing.T) {
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprint(w, `<!DOCTYPE html>
+		_, _ = fmt.Fprint(w, `<!DOCTYPE html>
 		<html><head><title>Mock Page</title></head>
 		<body><h1>Hello</h1></body></html>`)
 	}))
